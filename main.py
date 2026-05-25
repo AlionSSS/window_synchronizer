@@ -32,7 +32,7 @@ class WindowSyncApp:
         self._skip_single_click = False
 
         self.root = tk.Tk()
-        self.root.title("多游戏窗口同步器 v0.1.0 By: 菠萝包 QQ444066154")
+        self.root.title("游戏窗口同步器 v0.2.0 By: 菠萝包 QQ444066154")
         self.root.geometry("700x500")
         self.root.minsize(500, 350)
         self.root.iconbitmap(resource_path(os.path.join("resources", "icon.ico")))
