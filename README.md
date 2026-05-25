@@ -2,13 +2,12 @@
 
 将主控窗口上的键盘、鼠标操作实时同步到多个受控游戏窗口，实现"操作一个，全部跟随"。
 
+想要直接使用？直接从 [Releases](https://github.com/AlionSSS/window_synchronizer/releases) 下载最新版本，例如 `window_synchronizer_v0.1.0.zip`。
+
 ## 适用场景
 
 - 同时运行多个相同游戏窗口，需要统一操控
 - 目标游戏为 Win32 GDI 渲染（基于 Windows 消息机制处理输入）
-
-![软件截图](software_screenshot.png)
-
 
 ## 功能特性
 
@@ -18,6 +17,8 @@
 - **鼠标同步** — 左键/右键/中键点击 + 拖拽 + 光标移动同步，支持跨窗口比例坐标映射
 - **全局热键** — `Ctrl+Shift+S` 快速启停同步
 - **窗口状态监控** — 窗口关闭时自动移除或停止同步
+
+![软件截图](software_screenshot.png)
 
 ## 环境要求
 
