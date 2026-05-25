@@ -54,8 +54,7 @@ uv run python main.py
 window_synchronizer/
 ├── main.py           # GUI 主界面 (tkinter)
 ├── sync_engine.py    # 同步引擎 (Win32 钩子 + 消息转发)
-├── pyproject.toml    # 项目配置 (uv)
-└── .trae/specs/      # 开发规范文档
+└── pyproject.toml    # 项目配置 (uv)
 ```
 
 ## 技术架构
