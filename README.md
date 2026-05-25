@@ -2,7 +2,9 @@
 
 将主控窗口上的键盘、鼠标操作实时同步到多个受控游戏窗口，实现"操作一个，全部跟随"。
 
-想要直接使用？直接从 [Releases](https://github.com/AlionSSS/window_synchronizer/releases) 下载最新版本，例如 `window_synchronizer_v0.1.0.zip`。
+<br />
+
+*想要直接使用？直接从 [Releases](https://github.com/AlionSSS/window_synchronizer/releases) 下载最新版本，例如 `window_synchronizer_v0.1.0.zip`。*
 
 ## 适用场景
 
@@ -91,7 +93,9 @@ pyinstaller -D -w -i resources\icon.ico --add-data "resources\icon.ico:resources
 ```
 
 参数说明：
+
 - `-D`：生成目录形式（启动更快）
 - `-w`：无控制台窗口
 - `-i`：指定图标
 - `-n`：输出名称
+
