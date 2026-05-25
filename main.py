@@ -3,6 +3,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 from sync_engine import SyncEngine, WindowInfo
+import theme
 
 import sys
 import os
@@ -36,6 +37,9 @@ class WindowSyncApp:
         self.root.minsize(500, 350)
         self.root.iconbitmap(resource_path(os.path.join("resources", "icon.ico")))
 
+        theme.configure_theme(self.root)
+        self.root.configure(bg=theme.COLOR_BG_WINDOW)
+
         self._build_ui()
         self._refresh_window_list()
 
@@ -59,12 +63,14 @@ class WindowSyncApp:
         ttk.Button(toolbar, text="设为主控", command=self._set_master).pack(
             side=tk.LEFT, padx=(0, 4)
         )
-        ttk.Button(toolbar, text="全选受控", command=self._select_all_slaves).pack(
-            side=tk.LEFT, padx=(0, 4)
+        self.select_all_btn = ttk.Button(
+            toolbar, text="全选受控", command=self._select_all_slaves
         )
-        ttk.Button(toolbar, text="取消全选", command=self._deselect_all_slaves).pack(
-            side=tk.LEFT, padx=(0, 4)
+        self.select_all_btn.pack(side=tk.LEFT, padx=(0, 4))
+        self.deselect_all_btn = ttk.Button(
+            toolbar, text="取消全选", command=self._deselect_all_slaves
         )
+        self.deselect_all_btn.pack(side=tk.LEFT, padx=(0, 4))
 
         # ── 窗口列表区域 ──
         list_frame = ttk.LabelFrame(self.root, text="桌面窗口列表")
@@ -105,18 +111,24 @@ class WindowSyncApp:
         )
         self.sync_btn.pack(side=tk.LEFT, padx=(0, 8))
 
-        self.status_label = ttk.Label(control_frame, text="已停止", foreground="gray")
+        self.status_label = ttk.Label(
+            control_frame, text="已停止",
+            foreground=theme.COLOR_TEXT_SECONDARY, style="Status.TLabel"
+        )
         self.status_label.pack(side=tk.LEFT, padx=(0, 16))
 
         self.count_label = ttk.Label(control_frame, text="主控: 0  |  受控: 0")
         self.count_label.pack(side=tk.LEFT)
 
-        ttk.Label(control_frame, text="热键: Ctrl+Shift+S", foreground="gray").pack(
+        ttk.Label(
+            control_frame, text="热键: Ctrl+Shift+S",
+            foreground=theme.COLOR_TEXT_SECONDARY, style="Secondary.TLabel"
+        ).pack(
             side=tk.RIGHT
         )
 
         # ── 底部状态栏 ──
-        status_bar = ttk.Frame(self.root, relief=tk.SUNKEN)
+        status_bar = ttk.Frame(self.root, style="Surface.TFrame")
         status_bar.pack(fill=tk.X, side=tk.BOTTOM)
         self.status_bar_label = ttk.Label(status_bar, text="就绪")
         self.status_bar_label.pack(side=tk.LEFT, padx=4, pady=2)
@@ -153,12 +165,14 @@ class WindowSyncApp:
 
     def _insert_window_item(self, win: WindowInfo):
         """插入单行窗口条目。"""
-        checked = "☑" if win.is_slave else "☐"
+        checked = ""
         if win.is_master:
             role = "主控"
         elif win.is_slave:
+            checked = "☑"
             role = "受控"
         else:
+            checked = "☐"
             role = ""
 
         item = self.tree.insert(
@@ -270,12 +284,24 @@ class WindowSyncApp:
 
     def _update_sync_button(self):
         """更新同步按钮和状态标签。"""
-        if self.engine.is_running:
-            self.sync_btn.config(text="停止同步")
-            self.status_label.config(text="同步中", foreground="green")
+        running = self.engine.is_running
+        if running:
+            self.sync_btn.config(
+                text="停止同步", style="Danger.TButton"
+            )
+            self.status_label.config(
+                text="同步中", foreground=theme.COLOR_SUCCESS
+            )
         else:
-            self.sync_btn.config(text="开始同步")
-            self.status_label.config(text="已停止", foreground="gray")
+            self.sync_btn.config(
+                text="开始同步", style="TButton"
+            )
+            self.status_label.config(
+                text="已停止", foreground=theme.COLOR_TEXT_SECONDARY
+            )
+        state = tk.DISABLED if running else tk.NORMAL
+        self.select_all_btn.config(state=state)
+        self.deselect_all_btn.config(state=state)
 
     def _poll_notifications(self):
         """轮询引擎通知队列（主线程安全）。"""
@@ -305,8 +331,12 @@ class WindowSyncApp:
 
     def run(self):
         """运行主循环。"""
-        self.tree.tag_configure("master", background="#90EE90")  # 浅绿色
-        self.tree.tag_configure("slave", background="#ADD8E6")  # 浅蓝色
+        self.tree.tag_configure(
+            "master", background=theme.COLOR_TREE_MASTER_BG, foreground=theme.COLOR_TEXT
+        )
+        self.tree.tag_configure(
+            "slave", background=theme.COLOR_TREE_SLAVE_BG, foreground=theme.COLOR_TEXT
+        )
         self.root.after(200, self._poll_notifications)
         self.root.mainloop()
 

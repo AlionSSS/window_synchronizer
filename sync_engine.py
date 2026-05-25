@@ -160,6 +160,9 @@ class SyncEngine:
         # 线程安全通知队列，替代直接回调（避免跨线程 tkinter 调用崩溃）
         self._notify_queue: Queue = Queue()
 
+        # 窗口列表跨线程读写锁
+        self._windows_lock = threading.Lock()
+
         self._wndproc_setup()
 
     # ── 窗口枚举 ─────────────────────────────────────────────────
@@ -206,7 +209,8 @@ class SyncEngine:
 
         proc = WNDENUMPROC(enum_callback)
         user32.EnumWindows(proc, 0)
-        self._windows = result
+        with self._windows_lock:
+            self._windows = result
         return result
 
     def get_window_rect(self, hwnd: int) -> tuple[int, int, int, int]:
@@ -253,9 +257,10 @@ class SyncEngine:
 
         lparam = 1 | (scan_code << 16) | extended | context | transition_prev
 
-        slave_hwnds = [
-            w.hwnd for w in self._windows if w.is_slave and user32.IsWindow(w.hwnd)
-        ]
+        with self._windows_lock:
+            slave_hwnds = [
+                w.hwnd for w in self._windows if w.is_slave and user32.IsWindow(w.hwnd)
+            ]
         for hwnd in slave_hwnds:
             user32.PostMessageW(hwnd, msg, vk_code, lparam)
 
@@ -301,19 +306,19 @@ class SyncEngine:
         rel_y = (click_y - rect[1]) / max(master_h, 1)
 
         # 转发到每个受控窗口
-        for win in self._windows:
-            if win.is_slave and user32.IsWindow(win.hwnd):
-                sr = self.get_window_rect(win.hwnd)
-                sw = sr[2] - sr[0]
-                sh = sr[3] - sr[1]
-                # 先用比例算出屏幕坐标，再用 ScreenToClient 转客户端坐标
-                screen_x = sr[0] + int(rel_x * sw)
-                screen_y = sr[1] + int(rel_y * sh)
-                pt = wintypes.POINT(screen_x, screen_y)
-                user32.ScreenToClient(win.hwnd, ctypes.byref(pt))
-                lparam = (pt.y << 16) | (pt.x & 0xFFFF)
-                wparam = _mouse_wparam(msg)
-                user32.PostMessageW(win.hwnd, msg, wparam, lparam)
+        with self._windows_lock:
+            slaves = [w for w in self._windows if w.is_slave and user32.IsWindow(w.hwnd)]
+        for win in slaves:
+            sr = self.get_window_rect(win.hwnd)
+            sw = sr[2] - sr[0]
+            sh = sr[3] - sr[1]
+            screen_x = sr[0] + int(rel_x * sw)
+            screen_y = sr[1] + int(rel_y * sh)
+            pt = wintypes.POINT(screen_x, screen_y)
+            user32.ScreenToClient(win.hwnd, ctypes.byref(pt))
+            lparam = (pt.y << 16) | (pt.x & 0xFFFF)
+            wparam = _mouse_wparam(msg)
+            user32.PostMessageW(win.hwnd, msg, wparam, lparam)
 
         self._mouse_forwarded += 1
         self._emit_debug()
@@ -478,20 +483,20 @@ class SyncEngine:
 
     def set_master(self, hwnd: int):
         """设置主控窗口（不自动修改其他窗口的受控状态）。"""
-        for win in self._windows:
-            win.is_master = (win.hwnd == hwnd)
-            # 主控窗口不能同时是受控
-            if win.is_master:
-                win.is_slave = False
+        with self._windows_lock:
+            for win in self._windows:
+                win.is_master = (win.hwnd == hwnd)
+                if win.is_master:
+                    win.is_slave = False
         self._validate_windows()
 
     def toggle_slave(self, hwnd: int, checked: bool):
         """切换受控窗口状态。"""
-        for win in self._windows:
-            if win.hwnd == hwnd:
-                win.is_slave = checked and not win.is_master
-                break
-        self._validate_windows()
+        with self._windows_lock:
+            for win in self._windows:
+                if win.hwnd == hwnd:
+                    win.is_slave = checked and not win.is_master
+                    break
 
     def _update_slaves(self):
         """更新受控窗口：除主控外所有勾选的窗口为受控。"""
@@ -508,20 +513,20 @@ class SyncEngine:
         return None
 
     def get_windows(self) -> list[WindowInfo]:
-        return self._windows
+        with self._windows_lock:
+            return list(self._windows)
 
     def _validate_windows(self):
         """验证窗口有效性，移除已关闭的窗口。"""
-        removed = False
-        for win in self._windows[:]:
-            if not user32.IsWindow(win.hwnd):
-                if win.is_master:
-                    self.uninstall_hooks()
-                    self._notify("主控窗口已关闭，同步已停止")
-                self._windows.remove(win)
-                removed = True
-        if removed and self._windows:
-            self._update_slaves()
+        with self._windows_lock:
+            removed = False
+            for win in self._windows[:]:
+                if not user32.IsWindow(win.hwnd):
+                    if win.is_master:
+                        self.uninstall_hooks()
+                        self._notify("主控窗口已关闭，同步已停止")
+                    self._windows.remove(win)
+                    removed = True
 
     def cleanup(self):
         """清理所有资源。"""
