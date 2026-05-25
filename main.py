@@ -11,7 +11,7 @@ def resource_path(relative_path):
     try:
         # PyInstaller 在运行时会将所有资源文件“存放”在这个路径指向的目录下
         # 对于 -D 模式，这会是 {exe所在目录}/_internal
-        base_path = sys._MEIPASS
+        base_path = sys._MEIPASS  # pyright: ignore[reportAttributeAccessIssue]
     except AttributeError:
         # 如果不是在 PyInstaller 打包后的环境中运行（比如直接运行 .py 文件）
         base_path = os.path.abspath(".")
