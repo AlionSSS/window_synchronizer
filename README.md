@@ -4,7 +4,7 @@
 
 <br />
 
-*想要直接使用？直接从 [Releases](https://github.com/AlionSSS/window_synchronizer/releases) 下载最新版本，例如 `window_synchronizer_v0.1.0.zip`。*
+*想要直接使用？直接从* *[Releases](https://github.com/AlionSSS/window_synchronizer/releases)* *下载最新版本，例如* *`window_synchronizer_v0.1.0.zip`。*
 
 ## 适用场景
 
@@ -57,6 +57,7 @@ uv run python main.py
 window_synchronizer/
 ├── main.py           # GUI 主界面 (tkinter)
 ├── sync_engine.py    # 同步引擎 (Win32 钩子 + 消息转发)
+├── theme.py          # 主题配置 (tkinter 配置)
 └── pyproject.toml    # 项目配置 (uv)
 ```
 

@@ -1,7 +1,16 @@
 [project]
 name = "window-synchronizer"
 version = "0.2.0"
-description = "Add your description here"
+description = "多游戏窗口同步器。将主控窗口上的键盘、鼠标操作实时同步到多个受控游戏窗口，实现\"操作一个，全部跟随\"。"
+authors = [
+  { name = "Lion A", email = "alionsss@foxmail.com" }
+]
+license = { text = "License :: OSI Approved :: MIT License" }
+keywords = ["window", "synchronizer", "win32", "GDI", "game", "sync", "ctypes", "wintypes"]
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/AlionSSS/window_synchronizer"
+Repository = "https://github.com/AlionSSS/window_synchronizer.git"
