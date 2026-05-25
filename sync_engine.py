@@ -344,6 +344,7 @@ class SyncEngine:
         self._hook_thread.start()
         self._running = True
         self._notify("同步中")
+        return True
 
     def _hook_thread_proc(self):
         """后台线程：安装钩子并运行消息泵。"""
@@ -424,7 +425,7 @@ class SyncEngine:
         # 子类化窗口过程以拦截 WM_HOTKEY
         GWLP_WNDPROC = -4
         self._orig_wndproc = user32.SetWindowLongPtrW(
-            hwnd, GWLP_WNDPROC, ctypes.cast(self._wndproc, ctypes.c_void_p).value
+            hwnd, GWLP_WNDPROC, ctypes.cast(self._wndproc, ctypes.c_void_p).value if self._wndproc else 0
         )
 
     def unregister_hotkey(self, hwnd: int):
