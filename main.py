@@ -3,7 +3,21 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 from sync_engine import SyncEngine, WindowInfo
+import sys
+import os
 
+def resource_path(relative_path):
+    """获取资源的正确路径，兼容开发环境和 PyInstaller 打包后的环境"""
+    try:
+        # PyInstaller 在运行时会将所有资源文件“存放”在这个路径指向的目录下
+        # 对于 -D 模式，这会是 {exe所在目录}/_internal
+        base_path = sys._MEIPASS
+    except AttributeError:
+        # 如果不是在 PyInstaller 打包后的环境中运行（比如直接运行 .py 文件）
+        base_path = os.path.abspath(".")
+
+    # 将目标子目录（例如 "resources"）拼接到 base_path 后面
+    return os.path.join(base_path, relative_path)
 
 class WindowSyncApp:
     """窗口同步器主应用。"""
@@ -20,6 +34,9 @@ class WindowSyncApp:
         self.root.geometry("700x500")
         self.root.minsize(500, 350)
 
+        self.root.iconbitmap(resource_path(os.path.join("resources", "icon.ico")))
+        self.root.configure(bg="#2b2b2b")
+        self._setup_style()
         self._build_ui()
         self._refresh_window_list()
 
@@ -29,30 +46,94 @@ class WindowSyncApp:
         # 窗口关闭时清理
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
+    # ── 样式配置 ─────────────────────────────────────────────────
+
+    def _setup_style(self):
+        """配置暗色主题样式。"""
+        style = ttk.Style()
+        style.theme_use("clam")
+
+        BG = "#2b2b2b"
+        FG = "#ffffff"
+        COMPONENT_BG = "#333333"
+        ACCENT = "#4a9eff"
+        DANGER = "#e74c3c"
+        SUCCESS = "#2ecc71"
+        BORDER = "#555555"
+        SELECT_BG = "#4a9eff"
+
+        default_font = ("Microsoft YaHei UI", 9)
+        bold_font = ("Microsoft YaHei UI", 9, "bold")
+        small_font = ("Microsoft YaHei UI", 8)
+        heading_font = ("Microsoft YaHei UI", 9, "bold")
+
+        style.configure(".", background=BG, foreground=FG, font=default_font)
+        style.configure("TFrame", background=BG)
+        style.configure("TLabel", background=BG, foreground=FG, font=default_font)
+
+        style.configure("TButton", background=ACCENT, foreground=FG, font=default_font,
+                        padding=(12, 4), relief="flat", borderwidth=0)
+        style.map("TButton",
+                  background=[("active", "#3a8ee6"), ("pressed", "#2d7acc")],
+                  foreground=[("active", FG), ("pressed", FG)])
+
+        style.configure("Danger.TButton", background=DANGER, foreground=FG, font=default_font,
+                        padding=(12, 4), relief="flat", borderwidth=0)
+        style.map("Danger.TButton",
+                  background=[("active", "#c0392b"), ("pressed", "#a93226")],
+                  foreground=[("active", FG), ("pressed", FG)])
+
+        style.configure("TLabelframe", background=BG, foreground=FG, font=bold_font,
+                        bordercolor=BORDER, lightcolor=BORDER, darkcolor=BORDER)
+        style.configure("TLabelframe.Label", background=BG, foreground=FG, font=heading_font)
+
+        style.configure("Treeview", background=COMPONENT_BG, foreground=FG,
+                        fieldbackground=COMPONENT_BG, font=default_font, rowheight=24)
+        style.map("Treeview",
+                  background=[("selected", SELECT_BG)],
+                  foreground=[("selected", FG)])
+        style.configure("Treeview.Heading", background="#3a3a3a", foreground=FG,
+                        font=heading_font, relief="flat")
+        style.map("Treeview.Heading",
+                  background=[("active", "#4a4a4a")])
+
+        style.configure("Vertical.TScrollbar", background="#3a3a3a", troughcolor=COMPONENT_BG,
+                        bordercolor=BORDER, arrowcolor=FG, relief="flat")
+        style.map("Vertical.TScrollbar",
+                  background=[("active", "#4a4a4a")])
+
+        style.configure("StatusBar.TFrame", background="#1a1a1a")
+        style.configure("StatusBar.TLabel", background="#1a1a1a", foreground=FG, font=small_font)
+
+        style.configure("Hint.TLabel", background=BG, foreground="#888888", font=small_font)
+        style.configure("Count.TLabel", background=BG, foreground=FG, font=default_font)
+        style.configure("StatusRunning.TLabel", background=BG, foreground=SUCCESS, font=bold_font)
+        style.configure("StatusStopped.TLabel", background=BG, foreground="#aaaaaa", font=default_font)
+
     # ── UI 构建 ───────────────────────────────────────────────────
 
     def _build_ui(self):
         """构建 GUI 布局。"""
         # ── 顶部工具栏 ──
         toolbar = ttk.Frame(self.root)
-        toolbar.pack(fill=tk.X, padx=8, pady=(8, 4))
+        toolbar.pack(fill=tk.X, padx=12, pady=(12, 6))
 
         ttk.Button(toolbar, text="刷新窗口列表", command=self._refresh_window_list).pack(
-            side=tk.LEFT, padx=(0, 4)
+            side=tk.LEFT, padx=(0, 6)
         )
         ttk.Button(toolbar, text="设为主控", command=self._set_master).pack(
-            side=tk.LEFT, padx=(0, 4)
+            side=tk.LEFT, padx=(0, 6)
         )
         ttk.Button(toolbar, text="全选受控", command=self._select_all_slaves).pack(
-            side=tk.LEFT, padx=(0, 4)
+            side=tk.LEFT, padx=(0, 6)
         )
         ttk.Button(toolbar, text="取消全选", command=self._deselect_all_slaves).pack(
-            side=tk.LEFT, padx=(0, 4)
+            side=tk.LEFT, padx=(0, 6)
         )
 
         # ── 窗口列表区域 ──
         list_frame = ttk.LabelFrame(self.root, text="桌面窗口列表")
-        list_frame.pack(fill=tk.BOTH, expand=True, padx=8, pady=4)
+        list_frame.pack(fill=tk.BOTH, expand=True, padx=12, pady=6)
 
         # Treeview: 勾选 | 角色 | 进程 | 窗口标题 | 句柄
         columns = ("checked", "role", "process", "title", "hwnd")
@@ -82,28 +163,28 @@ class WindowSyncApp:
 
         # ── 同步控制区域 ──
         control_frame = ttk.Frame(self.root)
-        control_frame.pack(fill=tk.X, padx=8, pady=4)
+        control_frame.pack(fill=tk.X, padx=12, pady=6)
 
         self.sync_btn = ttk.Button(
             control_frame, text="开始同步", command=self._toggle_sync, width=12
         )
         self.sync_btn.pack(side=tk.LEFT, padx=(0, 8))
 
-        self.status_label = ttk.Label(control_frame, text="已停止", foreground="gray")
+        self.status_label = ttk.Label(control_frame, text="已停止", style="StatusStopped.TLabel")
         self.status_label.pack(side=tk.LEFT, padx=(0, 16))
 
-        self.count_label = ttk.Label(control_frame, text="主控: 0  |  受控: 0")
+        self.count_label = ttk.Label(control_frame, text="主控: 0  |  受控: 0", style="Count.TLabel")
         self.count_label.pack(side=tk.LEFT)
 
-        ttk.Label(control_frame, text="热键: Ctrl+Shift+S", foreground="gray").pack(
+        ttk.Label(control_frame, text="热键: Ctrl+Shift+S", style="Hint.TLabel").pack(
             side=tk.RIGHT
         )
 
         # ── 底部状态栏 ──
-        status_bar = ttk.Frame(self.root, relief=tk.SUNKEN)
+        status_bar = ttk.Frame(self.root, style="StatusBar.TFrame", relief=tk.SUNKEN)
         status_bar.pack(fill=tk.X, side=tk.BOTTOM)
-        self.status_bar_label = ttk.Label(status_bar, text="就绪")
-        self.status_bar_label.pack(side=tk.LEFT, padx=4, pady=2)
+        self.status_bar_label = ttk.Label(status_bar, text="就绪", style="StatusBar.TLabel")
+        self.status_bar_label.pack(side=tk.LEFT, padx=6, pady=4)
 
     # ── 窗口列表操作 ─────────────────────────────────────────────
 
@@ -255,11 +336,11 @@ class WindowSyncApp:
     def _update_sync_button(self):
         """更新同步按钮和状态标签。"""
         if self.engine.is_running:
-            self.sync_btn.config(text="停止同步")
-            self.status_label.config(text="同步中", foreground="green")
+            self.sync_btn.config(text="停止同步", style="Danger.TButton")
+            self.status_label.config(text="同步中", style="StatusRunning.TLabel")
         else:
-            self.sync_btn.config(text="开始同步")
-            self.status_label.config(text="已停止", foreground="gray")
+            self.sync_btn.config(text="开始同步", style="TButton")
+            self.status_label.config(text="已停止", style="StatusStopped.TLabel")
 
     def _poll_notifications(self):
         """轮询引擎通知队列（主线程安全）。"""
@@ -289,8 +370,8 @@ class WindowSyncApp:
 
     def run(self):
         """运行主循环。"""
-        self.tree.tag_configure("master", background="#90EE90")  # 浅绿色
-        self.tree.tag_configure("slave", background="#ADD8E6")  # 浅蓝色
+        self.tree.tag_configure("master", background="#2d6a2d", foreground="white")
+        self.tree.tag_configure("slave", background="#2a5a7a", foreground="white")
         self.root.after(200, self._poll_notifications)
         self.root.mainloop()
 

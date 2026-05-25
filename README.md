@@ -86,7 +86,7 @@ window_synchronizer/
 
 ```powershell
 pip install pyinstaller
-pyinstaller -D -w -i resources\icon.ico -n window_synchronizer main.py
+pyinstaller -D -w -i resources\icon.ico --add-data "resources\icon.ico:resources" -n window_synchronizer main.py
 ```
 
 参数说明：
