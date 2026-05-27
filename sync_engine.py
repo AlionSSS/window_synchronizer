@@ -519,14 +519,12 @@ class SyncEngine:
     def _validate_windows(self):
         """验证窗口有效性，移除已关闭的窗口。"""
         with self._windows_lock:
-            removed = False
             for win in self._windows[:]:
                 if not user32.IsWindow(win.hwnd):
                     if win.is_master:
                         self.uninstall_hooks()
                         self._notify("主控窗口已关闭，同步已停止")
                     self._windows.remove(win)
-                    removed = True
 
     def cleanup(self):
         """清理所有资源。"""
