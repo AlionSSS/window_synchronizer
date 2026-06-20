@@ -22,27 +22,9 @@
 
 ![软件截图](software_screenshot.png)
 
-## 环境要求
-
-- Windows 10/11 (64-bit)
-- Python 3.11+
-- [uv](https://docs.astral.sh/uv/) 包管理器
-
-## 快速开始
-
-```powershell
-# 克隆项目
-git clone <repo-url>
-cd window_synchronizer
-
-# 初始化环境并运行
-uv sync
-uv run python main.py
-```
-
 ## 使用说明
 
-1. 启动程序，点击 **刷新窗口列表** 枚举桌面窗口
+1. 启动程序`window_synchronizer.exe`，点击 **刷新窗口列表** 枚举桌面窗口
 2. 在列表中选择一个窗口，点击 **设为主控**
 3. 勾选需要同步的窗口（单击"同步"列或双击行）
 4. 点击 **开始同步** 或按 `Ctrl+Shift+S` 启动
@@ -50,6 +32,23 @@ uv run python main.py
 6. 再次点击 **停止同步** 或按 `Ctrl+Shift+S` 停止
 
 > 注意：1. 只有当前激活（前景）窗口为主控窗口时，键盘和鼠标事件才会被转发。在受控窗口或其他应用上的操作不会触发同步。2. Windows 系统设置-屏幕-缩放与布局需要设置为 100%。
+
+## 开发环境要求
+
+- Windows 10/11 (64-bit)
+- Python 3.11+
+- [uv](https://docs.astral.sh/uv/) 包管理器
+
+## 使用源码开始
+
+```powershell
+# 克隆项目
+git clone <repo-url>
+cd window_synchronizer
+
+uv sync
+uv run python main.py
+```
 
 ## 项目结构
 
