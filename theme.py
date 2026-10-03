@@ -10,36 +10,36 @@ from tkinter import ttk
 # ═══════════════════════════════════════════════════════════════════
 
 # 背景
-COLOR_BG_WINDOW = "#EDF2F7"          # 窗口底色（浅灰蓝）
-COLOR_BG_SURFACE = "#FFFFFF"          # 卡片 / 框架底色
-COLOR_BG_SURFACE_ALT = "#F7FAFC"     # 框架备选底色（微蓝白）
+COLOR_BG_WINDOW = "#EDF2F7"  # 窗口底色（浅灰蓝）
+COLOR_BG_SURFACE = "#FFFFFF"  # 卡片 / 框架底色
+COLOR_BG_SURFACE_ALT = "#F7FAFC"  # 框架备选底色（微蓝白）
 
 # 主题蓝（莫兰迪）
-COLOR_PRIMARY = "#4A6C95"            # 主色（中灰蓝，白字 ≥4.5:1）
-COLOR_PRIMARY_DARK = "#3A587F"       # 主色深（悬停 / 按压）
-COLOR_PRIMARY_LIGHT = "#759CC0"      # 主色浅
-COLOR_PRIMARY_PALE = "#D4E3F0"       # 主色极浅（背景铺底）
+COLOR_PRIMARY = "#4A6C95"  # 主色（中灰蓝，白字 ≥4.5:1）
+COLOR_PRIMARY_DARK = "#3A587F"  # 主色深（悬停 / 按压）
+COLOR_PRIMARY_LIGHT = "#759CC0"  # 主色浅
+COLOR_PRIMARY_PALE = "#D4E3F0"  # 主色极浅（背景铺底）
 
 # 文字
-COLOR_TEXT = "#1E2D3D"               # 主文字（深藏青）
-COLOR_TEXT_SECONDARY = "#486078"     # 次要文字
-COLOR_TEXT_DISABLED = "#788A9C"      # 禁用文字（WCAG 豁免非活跃组件）
-COLOR_TEXT_ON_PRIMARY = "#FFFFFF"    # 主色底上的文字
+COLOR_TEXT = "#1E2D3D"  # 主文字（深藏青）
+COLOR_TEXT_SECONDARY = "#486078"  # 次要文字
+COLOR_TEXT_DISABLED = "#788A9C"  # 禁用文字（WCAG 豁免非活跃组件）
+COLOR_TEXT_ON_PRIMARY = "#FFFFFF"  # 主色底上的文字
 
 # 状态色
-COLOR_SUCCESS = "#48755B"            # 成功 / 同步中（灰调绿，≥4.5:1）
-COLOR_DANGER = "#8C5C3E"             # 危险 / 警告（灰调暖，≥4.5:1）
-COLOR_WARNING = "#7A6A2E"            # 警告（灰调黄，白字 ≥4.5:1）
+COLOR_SUCCESS = "#48755B"  # 成功 / 同步中（灰调绿，≥4.5:1）
+COLOR_DANGER = "#8C5C3E"  # 危险 / 警告（灰调暖，≥4.5:1）
+COLOR_WARNING = "#7A6A2E"  # 警告（灰调黄，白字 ≥4.5:1）
 
 # 边框
-COLOR_BORDER = "#D0DAE3"             # 常规边框
-COLOR_BORDER_DARK = "#A8B8C8"        # 加深边框
-COLOR_BORDER_FOCUS = "#6B8EAD"       # 聚焦边框（同主色）
+COLOR_BORDER = "#D0DAE3"  # 常规边框
+COLOR_BORDER_DARK = "#A8B8C8"  # 加深边框
+COLOR_BORDER_FOCUS = "#6B8EAD"  # 聚焦边框（同主色）
 
 # 树状列表角色行
-COLOR_TREE_MASTER_BG = "#8DB5D0"     # 主控行背景（较饱和蓝色，突出显示）
-COLOR_TREE_SLAVE_BG = "#E5ECF3"      # 受控行背景（极浅蓝灰）
-COLOR_TREE_SELECTED_BG = "#A8C5DE"   # 选中行背景
+COLOR_TREE_MASTER_BG = "#8DB5D0"  # 主控行背景（较饱和蓝色，突出显示）
+COLOR_TREE_SLAVE_BG = "#E5ECF3"  # 受控行背景（极浅蓝灰）
+COLOR_TREE_SELECTED_BG = "#A8C5DE"  # 选中行背景
 
 # ═══════════════════════════════════════════════════════════════════
 #  字体
@@ -183,6 +183,21 @@ def configure_theme(root: tk.Tk) -> None:
             ("active", "#6C452E"),
             ("pressed", "#6C452E"),
         ],
+    )
+
+    # ── TRadiobutton ──
+    style.configure(
+        "TRadiobutton",
+        background=COLOR_BG_WINDOW,
+        foreground=COLOR_TEXT,
+        font=FONT_DEFAULT,
+        focuscolor=COLOR_BG_WINDOW,
+        indicatorcolor=COLOR_BG_SURFACE,
+    )
+    style.map(
+        "TRadiobutton",
+        background=[("active", COLOR_BG_WINDOW)],
+        foreground=[("disabled", COLOR_TEXT_DISABLED)],
     )
 
     # ── TLabelframe ──

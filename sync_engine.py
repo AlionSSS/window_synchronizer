@@ -4,8 +4,8 @@ import ctypes
 from ctypes import wintypes
 import threading
 from dataclasses import dataclass
+from enum import IntEnum
 from queue import Queue
-import time
 
 # ── Win32 API 常量 ──────────────────────────────────────────────
 
@@ -63,6 +63,7 @@ def _mouse_wparam(msg: int) -> int:
         return wparam
     return _MOUSE_WPARAM_MAP.get(msg, 0)
 
+
 # KBDLLHOOKSTRUCT flags
 LLKHF_EXTENDED = 0x01
 LLKHF_INJECTED = 0x10
@@ -75,19 +76,32 @@ kernel32 = ctypes.windll.kernel32
 
 # 设置关键函数的返回类型和参数类型（防止 64 位截断）
 user32.CallNextHookEx.restype = ctypes.c_longlong
-user32.CallNextHookEx.argtypes = [wintypes.HHOOK, ctypes.c_int, wintypes.WPARAM, wintypes.LPARAM]
+user32.CallNextHookEx.argtypes = [
+    wintypes.HHOOK,
+    ctypes.c_int,
+    wintypes.WPARAM,
+    wintypes.LPARAM,
+]
 user32.SetWindowsHookExW.restype = wintypes.HHOOK
 user32.SetWindowLongPtrW.restype = ctypes.c_longlong
 user32.SetWindowLongPtrW.argtypes = [wintypes.HWND, ctypes.c_int, ctypes.c_longlong]
 user32.CallWindowProcW.restype = ctypes.c_longlong
-user32.CallWindowProcW.argtypes = [ctypes.c_longlong, wintypes.HWND, wintypes.UINT,
-                                    wintypes.WPARAM, wintypes.LPARAM]
+user32.CallWindowProcW.argtypes = [
+    ctypes.c_longlong,
+    wintypes.HWND,
+    wintypes.UINT,
+    wintypes.WPARAM,
+    wintypes.LPARAM,
+]
 
 # 窗口枚举回调类型
 WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
 
 # 钩子回调类型（LRESULT 在 64 位下为 8 字节）
-HOOKPROC = ctypes.WINFUNCTYPE(ctypes.c_longlong, ctypes.c_int, wintypes.WPARAM, wintypes.LPARAM)
+HOOKPROC = ctypes.WINFUNCTYPE(
+    ctypes.c_longlong, ctypes.c_int, wintypes.WPARAM, wintypes.LPARAM
+)
+
 
 # MSLLHOOKSTRUCT
 class MSLLHOOKSTRUCT(ctypes.Structure):
@@ -99,6 +113,7 @@ class MSLLHOOKSTRUCT(ctypes.Structure):
         ("dwExtraInfo", ctypes.c_size_t),
     ]
 
+
 # KBDLLHOOKSTRUCT
 class KBDLLHOOKSTRUCT(ctypes.Structure):
     _fields_ = [
@@ -108,6 +123,7 @@ class KBDLLHOOKSTRUCT(ctypes.Structure):
         ("time", wintypes.DWORD),
         ("dwExtraInfo", ctypes.POINTER(ctypes.c_ulong)),
     ]
+
 
 # RECT
 class RECT(ctypes.Structure):
@@ -122,11 +138,30 @@ class RECT(ctypes.Structure):
 @dataclass
 class WindowInfo:
     """窗口信息数据类。"""
+
     hwnd: int
     title: str
     process_name: str = ""
     is_master: bool = False
     is_slave: bool = False
+
+
+class SyncMode(IntEnum):
+    """同步范围：控制转发键盘 / 鼠标事件。"""
+
+    BOTH = 0  # 全部同步（默认）
+    KEYBOARD = 1  # 仅键盘
+    MOUSE = 2  # 仅鼠标
+
+    @property
+    def sync_keyboard(self) -> bool:
+        """是否转发键盘事件。"""
+        return self in (SyncMode.BOTH, SyncMode.KEYBOARD)
+
+    @property
+    def sync_mouse(self) -> bool:
+        """是否转发鼠标事件。"""
+        return self in (SyncMode.BOTH, SyncMode.MOUSE)
 
 
 class SyncEngine:
@@ -141,21 +176,16 @@ class SyncEngine:
         self._orig_wndproc: int = 0
         self._wndproc = None
         self._running: bool = False
+        self._mode: SyncMode = SyncMode.BOTH
         self._hook_thread: threading.Thread | None = None
         self._stop_event = threading.Event()
+        # 钩子安装完成信号与失败原因（用于消除 install_hooks 的启动竞态）
+        self._hooks_installed = threading.Event()
+        self._hook_error: str | None = None
 
         # 保存 ctypes 回调引用防止被 GC
         self._keyboard_proc: HOOKPROC | None = None
         self._mouse_proc: HOOKPROC | None = None
-
-        # 调试计数器
-        self._kb_count: int = 0
-        self._mouse_fired: int = 0      # 钩子回调被调用次数
-        self._mouse_action: int = 0      # nCode==HC_ACTION 次数
-        self._mouse_nonmove: int = 0     # 非移动事件次数
-        self._mouse_forwarded: int = 0   # 实际转发次数
-        self._mouse_rejected: int = 0    # 被条件拒绝次数
-        self._last_debug_time: float = 0
 
         # 线程安全通知队列，替代直接回调（避免跨线程 tkinter 调用崩溃）
         self._notify_queue: Queue = Queue()
@@ -176,13 +206,17 @@ class SyncEngine:
             return ""
         try:
             PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
-            h_process = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid.value)
+            h_process = kernel32.OpenProcess(
+                PROCESS_QUERY_LIMITED_INFORMATION, False, pid.value
+            )
             if not h_process:
                 return ""
             try:
                 size = wintypes.DWORD(260)
                 buffer = ctypes.create_unicode_buffer(size.value)
-                if kernel32.QueryFullProcessImageNameW(h_process, 0, buffer, ctypes.byref(size)):
+                if kernel32.QueryFullProcessImageNameW(
+                    h_process, 0, buffer, ctypes.byref(size)
+                ):
                     path = buffer.value
                     return path.rsplit("\\", 1)[-1]
             finally:
@@ -204,7 +238,9 @@ class SyncEngine:
                 if title and title.strip():
                     proc_name = SyncEngine._get_process_name(hwnd)
                     # 统一转为 int 存储，避免 ctypes 类型比较问题
-                    result.append(WindowInfo(hwnd=int(hwnd), title=title, process_name=proc_name))
+                    result.append(
+                        WindowInfo(hwnd=int(hwnd), title=title, process_name=proc_name)
+                    )
             return True
 
         proc = WNDENUMPROC(enum_callback)
@@ -222,7 +258,7 @@ class SyncEngine:
     # ── 键盘钩子 ─────────────────────────────────────────────────
 
     def _keyboard_hook_callback(self, nCode: int, wParam: int, lParam: int) -> int:
-        if nCode == HC_ACTION and self._running:
+        if nCode == HC_ACTION and self._running and self._mode.sync_keyboard:
             kb = ctypes.cast(lParam, ctypes.POINTER(KBDLLHOOKSTRUCT)).contents
             vk_code = kb.vkCode
 
@@ -233,7 +269,7 @@ class SyncEngine:
                 msg_type = WM_SYSKEYDOWN if is_keydown else WM_SYSKEYUP
 
             # 仅当焦点窗口为主控窗口时转发
-            master = self._get_master()
+            master = self.get_master()
             if master and int(user32.GetForegroundWindow()) == master.hwnd:
                 # 跳过注入事件
                 if not (kb.flags & LLKHF_INJECTED):
@@ -264,32 +300,22 @@ class SyncEngine:
         for hwnd in slave_hwnds:
             user32.PostMessageW(hwnd, msg, vk_code, lparam)
 
-        # 调试日志
-        self._kb_count += 1
-        self._emit_debug()
-
     # ── 鼠标钩子 ─────────────────────────────────────────────────
 
     def _mouse_hook_callback(self, nCode: int, wParam: int, lParam: int) -> int:
-        self._mouse_fired += 1
-        if nCode == HC_ACTION and self._running:
-            self._mouse_action += 1
-            master = self._get_master()
+        if nCode == HC_ACTION and self._running and self._mode.sync_mouse:
+            master = self.get_master()
             if master and int(user32.GetForegroundWindow()) == master.hwnd:
                 ms = ctypes.cast(lParam, ctypes.POINTER(MSLLHOOKSTRUCT)).contents
-                if wParam != WM_MOUSEMOVE:
-                    self._mouse_nonmove += 1
                 self._forward_mouse(wParam, ms.pt.x, ms.pt.y)
         return user32.CallNextHookEx(self._mouse_hook_id, nCode, wParam, lParam)
 
     def _forward_mouse(self, msg: int, click_x: int, click_y: int):
         """将鼠标点击事件转发到所有受控窗口（坐标转换）。"""
-        master = self._get_master()
+        master = self.get_master()
         if master is None:
-            self._mouse_rejected += 1
             return
         if not user32.IsWindow(master.hwnd):
-            self._mouse_rejected += 1
             return
 
         rect = self.get_window_rect(master.hwnd)
@@ -298,7 +324,6 @@ class SyncEngine:
 
         # 仅当点击位置在主控窗口范围内时转发
         if not (rect[0] <= click_x <= rect[2] and rect[1] <= click_y <= rect[3]):
-            self._mouse_rejected += 1
             return
 
         # 相对坐标 [0, 1]
@@ -307,7 +332,9 @@ class SyncEngine:
 
         # 转发到每个受控窗口
         with self._windows_lock:
-            slaves = [w for w in self._windows if w.is_slave and user32.IsWindow(w.hwnd)]
+            slaves = [
+                w for w in self._windows if w.is_slave and user32.IsWindow(w.hwnd)
+            ]
         for win in slaves:
             sr = self.get_window_rect(win.hwnd)
             sw = sr[2] - sr[0]
@@ -320,9 +347,6 @@ class SyncEngine:
             wparam = _mouse_wparam(msg)
             user32.PostMessageW(win.hwnd, msg, wparam, lparam)
 
-        self._mouse_forwarded += 1
-        self._emit_debug()
-
     # ── 钩子管理 ─────────────────────────────────────────────────
 
     def install_hooks(self) -> bool:
@@ -331,22 +355,40 @@ class SyncEngine:
             return True
 
         # 前置条件：必须设置了主控窗口
-        if self._get_master() is None:
+        if self.get_master() is None:
             self._notify("请先设置主控窗口")
             return False
         # 前置条件：必须至少有一个受控窗口
-        slave_count = sum(1 for w in self._windows if w.is_slave)
+        with self._windows_lock:
+            slave_count = sum(1 for w in self._windows if w.is_slave)
         if slave_count == 0:
             self._notify("请至少勾选一个受控窗口")
             return False
-        self._mouse_fired = 0
-        self._mouse_action = 0
-        self._mouse_nonmove = 0
-        self._mouse_forwarded = 0
-        self._mouse_rejected = 0
+
         self._stop_event.clear()
+        self._hooks_installed.clear()
+        self._hook_error = None
         self._hook_thread = threading.Thread(target=self._hook_thread_proc, daemon=True)
         self._hook_thread.start()
+
+        # 等待子线程回报安装结果，消除 "_running" 启动竞态：
+        # 仅当确认钩子安装成功后才置位 _running。
+        if not self._hooks_installed.wait(timeout=3.0):
+            # 超时兜底：请求线程退出并回收，避免钩子残留
+            self._stop_event.set()
+            if self._hook_thread.is_alive():
+                user32.PostThreadMessageW(
+                    self._hook_thread.ident, 0x0012, 0, 0
+                )  # WM_QUIT
+                self._hook_thread.join(timeout=1.0)
+            self._notify("钩子安装超时")
+            return False
+        if self._hook_error is not None:
+            self._notify(self._hook_error)
+            if self._hook_thread.is_alive():
+                self._hook_thread.join(timeout=1.0)
+            return False
+
         self._running = True
         self._notify("同步中")
         return True
@@ -362,8 +404,8 @@ class SyncEngine:
             WH_KEYBOARD_LL, self._keyboard_proc, hinst, 0
         )
         if not self._keyboard_hook_id:
-            self._notify("键盘钩子安装失败")
-            self._running = False
+            self._hook_error = "键盘钩子安装失败"
+            self._hooks_installed.set()
             return
 
         # 安装鼠标钩子
@@ -372,12 +414,14 @@ class SyncEngine:
             WH_MOUSE_LL, self._mouse_proc, hinst, 0
         )
         if not self._mouse_hook_id:
-            self._notify("鼠标钩子安装失败")
             user32.UnhookWindowsHookEx(self._keyboard_hook_id)
             self._keyboard_hook_id = None
-            self._running = False
+            self._hook_error = "鼠标钩子安装失败"
+            self._hooks_installed.set()
             return
 
+        # 安装成功：先唤醒 install_hooks，再进入消息循环
+        self._hooks_installed.set()
         self._notify("钩子已安装, 等待输入...")
 
         # 消息循环
@@ -418,8 +462,9 @@ class SyncEngine:
         if self._hotkey_registered:
             return
 
-        result = user32.RegisterHotKey(hwnd, self._hotkey_id,
-                                       MOD_CTRL | MOD_SHIFT | MOD_NOREPEAT, 0x53)
+        result = user32.RegisterHotKey(
+            hwnd, self._hotkey_id, MOD_CTRL | MOD_SHIFT | MOD_NOREPEAT, 0x53
+        )
         if not result:
             self._notify("热键注册失败(Ctrl+Shift+S可能已被占用)")
             return
@@ -430,7 +475,9 @@ class SyncEngine:
         # 子类化窗口过程以拦截 WM_HOTKEY
         GWLP_WNDPROC = -4
         self._orig_wndproc = user32.SetWindowLongPtrW(
-            hwnd, GWLP_WNDPROC, ctypes.cast(self._wndproc, ctypes.c_void_p).value if self._wndproc else 0
+            hwnd,
+            GWLP_WNDPROC,
+            ctypes.cast(self._wndproc, ctypes.c_void_p).value if self._wndproc else 0,
         )
 
     def unregister_hotkey(self, hwnd: int):
@@ -447,7 +494,11 @@ class SyncEngine:
     def _wndproc_setup(self):
         """创建窗口过程回调（必须在 __init__ 后调用）。"""
         WNDPROC = ctypes.WINFUNCTYPE(
-            ctypes.c_longlong, wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM
+            ctypes.c_longlong,
+            wintypes.HWND,
+            wintypes.UINT,
+            wintypes.WPARAM,
+            wintypes.LPARAM,
         )
         # 缓存 GIL 函数引用
         _gil_ensure = ctypes.pythonapi.PyGILState_Ensure
@@ -466,9 +517,7 @@ class SyncEngine:
                 finally:
                     _gil_release(gstate)
                 return 0
-            return user32.CallWindowProcW(
-                self._orig_wndproc, hwnd, msg, wparam, lparam
-            )
+            return user32.CallWindowProcW(self._orig_wndproc, hwnd, msg, wparam, lparam)
 
         self._wndproc = wndproc
 
@@ -485,10 +534,10 @@ class SyncEngine:
         """设置主控窗口（不自动修改其他窗口的受控状态）。"""
         with self._windows_lock:
             for win in self._windows:
-                win.is_master = (win.hwnd == hwnd)
+                win.is_master = win.hwnd == hwnd
                 if win.is_master:
                     win.is_slave = False
-        self._validate_windows()
+        self.validate_windows()
 
     def toggle_slave(self, hwnd: int, checked: bool):
         """切换受控窗口状态。"""
@@ -500,13 +549,14 @@ class SyncEngine:
 
     def _update_slaves(self):
         """更新受控窗口：除主控外所有勾选的窗口为受控。"""
-        master = self._get_master()
+        master = self.get_master()
         for win in self._windows:
             if master and win.hwnd != master.hwnd:
                 win.is_slave = True
-        self._validate_windows()
+        self.validate_windows()
 
-    def _get_master(self) -> WindowInfo | None:
+    def get_master(self) -> WindowInfo | None:
+        """返回当前主控窗口（无主控时返回 None）。"""
         for win in self._windows:
             if win.is_master:
                 return win
@@ -516,15 +566,23 @@ class SyncEngine:
         with self._windows_lock:
             return list(self._windows)
 
-    def _validate_windows(self):
-        """验证窗口有效性，移除已关闭的窗口。"""
+    def validate_windows(self):
+        """验证窗口有效性，移除已关闭的窗口。
+
+        注意：停止同步（uninstall_hooks）必须放在锁外执行。因为其内部会
+        join 钩子线程，而钩子回调（_forward_keyboard / _forward_mouse）同样
+        需要获取 _windows_lock，持锁 join 会导致主线程阻塞至超时。
+        """
+        master_closed = False
         with self._windows_lock:
             for win in self._windows[:]:
                 if not user32.IsWindow(win.hwnd):
                     if win.is_master:
-                        self.uninstall_hooks()
-                        self._notify("主控窗口已关闭，同步已停止")
+                        master_closed = True
                     self._windows.remove(win)
+        if master_closed:
+            self.uninstall_hooks()
+            self._notify("主控窗口已关闭，同步已停止")
 
     def cleanup(self):
         """清理所有资源。"""
@@ -536,21 +594,6 @@ class SyncEngine:
         """将状态消息放入线程安全队列（可由任意线程调用）。"""
         self._notify_queue.put(("status", status))
 
-    def _emit_debug(self):
-        """每秒输出一次调试信息。"""
-        now = time.time()
-        if now - self._last_debug_time >= 1.0:
-            self._last_debug_time = now
-            info = (
-                f"kb={self._kb_count} "
-                f"m_fired={self._mouse_fired} "
-                f"m_act={self._mouse_action} "
-                f"m_nonmove={self._mouse_nonmove} "
-                f"m_rej={self._mouse_rejected} "
-                f"m_fwd={self._mouse_forwarded}"
-            )
-            self._notify_queue.put(("debug", info))
-
     def get_notifications(self) -> list[tuple[str, str]]:
         """获取所有待处理通知（仅限主线程调用）。"""
         items = []
@@ -560,6 +603,15 @@ class SyncEngine:
             except Exception:
                 break
         return items
+
+    @property
+    def mode(self) -> SyncMode:
+        """当前同步范围（键盘 / 鼠标 / 全部）。"""
+        return self._mode
+
+    @mode.setter
+    def mode(self, value: SyncMode) -> None:
+        self._mode = value
 
     @property
     def is_running(self) -> bool:

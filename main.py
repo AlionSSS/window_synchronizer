@@ -2,11 +2,12 @@
 
 import tkinter as tk
 from tkinter import ttk, messagebox
-from sync_engine import SyncEngine, WindowInfo
+from sync_engine import SyncEngine, SyncMode, WindowInfo
 import theme
 
 import sys
 import os
+
 
 def resource_path(relative_path):
     """获取资源的正确路径，兼容开发环境和 PyInstaller 打包后的环境"""
@@ -16,15 +17,24 @@ def resource_path(relative_path):
         base_path = sys._MEIPASS  # pyright: ignore[reportAttributeAccessIssue]
     except AttributeError:
         # 如果不是在 PyInstaller 打包后的环境中运行（比如直接运行 .py 文件）
-        base_path = os.path.abspath(".")
+        # 使用脚本所在目录，避免依赖当前工作目录
+        base_path = os.path.dirname(os.path.abspath(__file__))
 
     # 将目标子目录（例如 "resources"）拼接到 base_path 后面
     return os.path.join(base_path, relative_path)
+
 
 class WindowSyncApp:
     """窗口同步器主应用。"""
 
     HOTKEY_ID = 1
+
+    # 同步范围 → 显示名称（默认全部同步）
+    _MODE_LABELS = {
+        SyncMode.BOTH: "全部同步",
+        SyncMode.KEYBOARD: "仅键盘",
+        SyncMode.MOUSE: "仅鼠标",
+    }
 
     def __init__(self):
         self.engine = SyncEngine()
@@ -32,10 +42,13 @@ class WindowSyncApp:
         self._skip_single_click = False
 
         self.root = tk.Tk()
-        self.root.title("游戏窗口同步器 v0.2.0 By: 菠萝包 QQ444066154")
+        self.root.title("游戏窗口同步器 v0.3.0 By: 菠萝包 QQ444066154")
         self.root.geometry("700x500")
         self.root.minsize(500, 350)
-        self.root.iconbitmap(resource_path(os.path.join("resources", "icon.ico")))
+        try:
+            self.root.iconbitmap(resource_path(os.path.join("resources", "icon.ico")))
+        except tk.TclError:
+            pass  # 图标缺失时不影响启动
 
         theme.configure_theme(self.root)
         self.root.configure(bg=theme.COLOR_BG_WINDOW)
@@ -57,9 +70,9 @@ class WindowSyncApp:
         toolbar = ttk.Frame(self.root)
         toolbar.pack(fill=tk.X, padx=8, pady=(8, 4))
 
-        ttk.Button(toolbar, text="刷新窗口列表", command=self._refresh_window_list).pack(
-            side=tk.LEFT, padx=(0, 4)
-        )
+        ttk.Button(
+            toolbar, text="刷新窗口列表", command=self._refresh_window_list
+        ).pack(side=tk.LEFT, padx=(0, 4))
         ttk.Button(toolbar, text="设为主控", command=self._set_master).pack(
             side=tk.LEFT, padx=(0, 4)
         )
@@ -93,7 +106,9 @@ class WindowSyncApp:
         self.tree.column("title", width=350)
         self.tree.column("hwnd", width=80, anchor=tk.CENTER)
 
-        scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=self.tree.yview)
+        scrollbar = ttk.Scrollbar(
+            list_frame, orient=tk.VERTICAL, command=self.tree.yview
+        )
         self.tree.configure(yscrollcommand=scrollbar.set)
         self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
@@ -101,6 +116,22 @@ class WindowSyncApp:
         # 单击"同步"列切换受控状态，双击任意列也可切换
         self.tree.bind("<ButtonRelease-1>", self._on_checkbox_click)
         self.tree.bind("<Double-1>", self._on_double_click)
+
+        # ── 同步范围选择 ──
+        mode_frame = ttk.Frame(self.root)
+        mode_frame.pack(fill=tk.X, padx=8, pady=(0, 4))
+
+        ttk.Label(mode_frame, text="同步范围:").pack(side=tk.LEFT, padx=(0, 8))
+
+        self.mode_var = tk.IntVar(value=SyncMode.BOTH.value)
+        for mode, text in self._MODE_LABELS.items():
+            ttk.Radiobutton(
+                mode_frame,
+                text=text,
+                variable=self.mode_var,
+                value=mode.value,
+                command=self._on_mode_change,
+            ).pack(side=tk.LEFT, padx=(0, 8))
 
         # ── 同步控制区域 ──
         control_frame = ttk.Frame(self.root)
@@ -112,8 +143,10 @@ class WindowSyncApp:
         self.sync_btn.pack(side=tk.LEFT, padx=(0, 8))
 
         self.status_label = ttk.Label(
-            control_frame, text="已停止",
-            foreground=theme.COLOR_TEXT_SECONDARY, style="Status.TLabel"
+            control_frame,
+            text="已停止",
+            foreground=theme.COLOR_TEXT_SECONDARY,
+            style="Status.TLabel",
         )
         self.status_label.pack(side=tk.LEFT, padx=(0, 16))
 
@@ -121,11 +154,11 @@ class WindowSyncApp:
         self.count_label.pack(side=tk.LEFT)
 
         ttk.Label(
-            control_frame, text="热键: Ctrl+Shift+S",
-            foreground=theme.COLOR_TEXT_SECONDARY, style="Secondary.TLabel"
-        ).pack(
-            side=tk.RIGHT
-        )
+            control_frame,
+            text="热键: Ctrl+Shift+S",
+            foreground=theme.COLOR_TEXT_SECONDARY,
+            style="Secondary.TLabel",
+        ).pack(side=tk.RIGHT)
 
         # ── 底部状态栏 ──
         status_bar = ttk.Frame(self.root, style="Surface.TFrame")
@@ -255,14 +288,14 @@ class WindowSyncApp:
 
     def _validate_and_cleanup(self):
         """验证窗口有效性。"""
-        self.engine._validate_windows()
+        self.engine.validate_windows()
         # 主控窗口关闭时更新 UI
-        if self.engine._get_master() is None and self.engine.is_running:
+        if self.engine.get_master() is None and self.engine.is_running:
             self.engine.uninstall_hooks()
             self._update_sync_button()
 
     def _get_master_hwnd(self) -> int | None:
-        master = self.engine._get_master()
+        master = self.engine.get_master()
         return master.hwnd if master else None
 
     def _update_counts(self):
@@ -286,16 +319,10 @@ class WindowSyncApp:
         """更新同步按钮和状态标签。"""
         running = self.engine.is_running
         if running:
-            self.sync_btn.config(
-                text="停止同步", style="Danger.TButton"
-            )
-            self.status_label.config(
-                text="同步中", foreground=theme.COLOR_SUCCESS
-            )
+            self.sync_btn.config(text="停止同步", style="Danger.TButton")
+            self.status_label.config(text="同步中", foreground=theme.COLOR_SUCCESS)
         else:
-            self.sync_btn.config(
-                text="开始同步", style="TButton"
-            )
+            self.sync_btn.config(text="开始同步", style="TButton")
             self.status_label.config(
                 text="已停止", foreground=theme.COLOR_TEXT_SECONDARY
             )
@@ -303,14 +330,18 @@ class WindowSyncApp:
         self.select_all_btn.config(state=state)
         self.deselect_all_btn.config(state=state)
 
+    def _on_mode_change(self):
+        """切换同步范围（键盘 / 鼠标 / 全部），支持运行中实时切换。"""
+        mode = SyncMode(self.mode_var.get())
+        self.engine.mode = mode
+        self.status_bar_label.config(text=f"同步范围：{self._MODE_LABELS[mode]}")
+
     def _poll_notifications(self):
         """轮询引擎通知队列（主线程安全）。"""
         items = self.engine.get_notifications()
         for kind, msg in items:
             if kind == "status":
                 self._update_sync_button()
-                self.status_bar_label.config(text=msg)
-            elif kind == "debug":
                 self.status_bar_label.config(text=msg)
         self.root.after(100, self._poll_notifications)
 
