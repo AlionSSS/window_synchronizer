@@ -99,8 +99,26 @@ def check_wcag_aa(fg: str, bg: str) -> str:
 # ═══════════════════════════════════════════════════════════════════
 
 
-def configure_theme(root: tk.Tk) -> None:
-    """在 root 上应用莫兰迪蓝色 ttk 主题。"""
+def ui_scale(root: tk.Tk) -> float:
+    """返回本机 DPI 相对 96 的缩放比。
+
+    进程已声明 DPI 感知，Tk 给出的是真实物理 DPI；字体以 pt 为单位会自动缩放，
+    但 rowheight / padding / 窗口尺寸等像素值不会，需要按此比例换算。
+    """
+    try:
+        return max(root.winfo_fpixels("1i") / 96.0, 1.0)
+    except tk.TclError:
+        return 1.0
+
+
+def configure_theme(root: tk.Tk) -> float:
+    """在 root 上应用莫兰迪蓝色 ttk 主题，返回 DPI 缩放比。"""
+
+    scale = ui_scale(root)
+
+    def px(value: int) -> int:
+        """设计稿像素 → 物理像素。"""
+        return max(int(round(value * scale)), 1)
 
     style = ttk.Style(root)
     try:
@@ -154,7 +172,7 @@ def configure_theme(root: tk.Tk) -> None:
         foreground=COLOR_TEXT_ON_PRIMARY,
         font=FONT_DEFAULT,
         borderwidth=0,
-        padding=(PAD_LARGE, PAD_SMALL),
+        padding=(px(PAD_LARGE), px(PAD_SMALL)),
         relief="flat",
         anchor="center",
     )
@@ -208,7 +226,7 @@ def configure_theme(root: tk.Tk) -> None:
         bordercolor=COLOR_BORDER,
         borderwidth=1,
         relief="solid",
-        padding=(PAD_MEDIUM, PAD_MEDIUM),
+        padding=(px(PAD_MEDIUM), px(PAD_MEDIUM)),
     )
     style.configure(
         "TLabelframe.Label",
@@ -225,7 +243,7 @@ def configure_theme(root: tk.Tk) -> None:
         fieldbackground=COLOR_BG_SURFACE,
         borderwidth=0,
         font=FONT_DEFAULT,
-        rowheight=26,
+        rowheight=px(26),
     )
     style.configure(
         "Treeview.Heading",
@@ -234,7 +252,7 @@ def configure_theme(root: tk.Tk) -> None:
         font=FONT_SMALL,
         borderwidth=0,
         relief="flat",
-        padding=(PAD_SMALL, 2),
+        padding=(px(PAD_SMALL), px(2)),
     )
     style.map(
         "Treeview.Heading",
@@ -256,7 +274,7 @@ def configure_theme(root: tk.Tk) -> None:
         arrowcolor=COLOR_TEXT_SECONDARY,
         borderwidth=0,
         relief="flat",
-        width=10,
+        width=px(10),
     )
     style.map(
         "Vertical.TScrollbar",
@@ -265,3 +283,5 @@ def configure_theme(root: tk.Tk) -> None:
 
     # ── 分隔线 ──
     style.configure("TSeparator", background=COLOR_BORDER)
+
+    return scale

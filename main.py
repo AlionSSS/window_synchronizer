@@ -1,8 +1,9 @@
 """多游戏窗口同步器 - GUI 主界面。"""
 
+import ctypes
 import tkinter as tk
 from tkinter import ttk, messagebox
-from sync_engine import SyncEngine, SyncMode, WindowInfo
+from sync_engine import acquire_single_instance, SyncEngine, SyncMode, WindowInfo
 import theme
 
 import sys
@@ -43,14 +44,16 @@ class WindowSyncApp:
 
         self.root = tk.Tk()
         self.root.title("游戏窗口同步器 v0.3.0 By: 菠萝包 QQ444066154")
-        self.root.geometry("700x500")
-        self.root.minsize(500, 350)
+
+        # 进程已声明 DPI 感知，界面按物理像素渲染，这里取回缩放比做尺寸换算
+        self._ui_scale = theme.configure_theme(self.root)
+        self.root.geometry(f"{self._px(700)}x{self._px(500)}")
+        self.root.minsize(self._px(500), self._px(350))
         try:
             self.root.iconbitmap(resource_path(os.path.join("resources", "icon.ico")))
         except tk.TclError:
             pass  # 图标缺失时不影响启动
 
-        theme.configure_theme(self.root)
         self.root.configure(bg=theme.COLOR_BG_WINDOW)
 
         self._build_ui()
@@ -63,6 +66,10 @@ class WindowSyncApp:
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
     # ── UI 构建 ───────────────────────────────────────────────────
+
+    def _px(self, value: int) -> int:
+        """把设计稿像素换算成本机物理像素。"""
+        return max(int(round(value * self._ui_scale)), 1)
 
     def _build_ui(self):
         """构建 GUI 布局。"""
@@ -100,11 +107,11 @@ class WindowSyncApp:
         self.tree.heading("title", text="窗口标题")
         self.tree.heading("hwnd", text="句柄")
 
-        self.tree.column("checked", width=40, anchor=tk.CENTER, stretch=False)
-        self.tree.column("role", width=60, anchor=tk.CENTER, stretch=False)
-        self.tree.column("process", width=100, anchor=tk.W, stretch=False)
-        self.tree.column("title", width=350)
-        self.tree.column("hwnd", width=80, anchor=tk.CENTER)
+        self.tree.column("checked", width=self._px(40), anchor=tk.CENTER, stretch=False)
+        self.tree.column("role", width=self._px(60), anchor=tk.CENTER, stretch=False)
+        self.tree.column("process", width=self._px(100), anchor=tk.W, stretch=False)
+        self.tree.column("title", width=self._px(350))
+        self.tree.column("hwnd", width=self._px(80), anchor=tk.CENTER)
 
         scrollbar = ttk.Scrollbar(
             list_frame, orient=tk.VERTICAL, command=self.tree.yview
@@ -234,18 +241,12 @@ class WindowSyncApp:
 
     def _select_all_slaves(self):
         """将所有窗口设为受控（除主控外）。"""
-        master = self._get_master_hwnd()
-        windows = self.engine.get_windows()
-        for win in windows:
-            if win.hwnd != master:
-                win.is_slave = True
+        self.engine.set_all_slaves(True)
         self._refresh_list_display()
 
     def _deselect_all_slaves(self):
         """取消所有受控窗口。"""
-        for win in self.engine.get_windows():
-            if not win.is_master:
-                win.is_slave = False
+        self.engine.set_all_slaves(False)
         self._refresh_list_display()
 
     def _on_double_click(self, event):
@@ -293,10 +294,6 @@ class WindowSyncApp:
         if self.engine.get_master() is None and self.engine.is_running:
             self.engine.uninstall_hooks()
             self._update_sync_button()
-
-    def _get_master_hwnd(self) -> int | None:
-        master = self.engine.get_master()
-        return master.hwnd if master else None
 
     def _update_counts(self):
         """更新计数显示。"""
@@ -373,6 +370,16 @@ class WindowSyncApp:
 
 
 def main():
+    # 单实例：多开会各自安装一对钩子，同一个点击被转发两次，
+    # 对开关型界面表现为"点一次生效、下一次无效"
+    if not acquire_single_instance():
+        ctypes.windll.user32.MessageBoxW(
+            None,
+            "窗口同步器已在运行，请不要重复启动。",
+            "提示",
+            0x00000040,
+        )
+        return
     app = WindowSyncApp()
     app.run()
 

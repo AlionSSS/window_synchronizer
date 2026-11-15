@@ -221,4 +221,4 @@ __marimo__/
 .streamlit/secrets.toml
 
 # AI Editor
-.trae
+AGENTS.md
