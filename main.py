@@ -43,7 +43,7 @@ class WindowSyncApp:
         self._skip_single_click = False
 
         self.root = tk.Tk()
-        self.root.title("游戏窗口同步器 v0.3.0 By: 菠萝包 QQ444066154")
+        self.root.title("游戏窗口同步器 v0.3.1 By: 菠萝包 QQ444066154")
 
         # 进程已声明 DPI 感知，界面按物理像素渲染，这里取回缩放比做尺寸换算
         self._ui_scale = theme.configure_theme(self.root)

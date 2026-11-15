@@ -4,7 +4,7 @@
 
 <br />
 
-*想要直接使用？从* *[Releases](https://github.com/AlionSSS/window_synchronizer/releases)* *下载最新版本，例如* *`window_synchronizer_v0.3.0.zip`。*
+*想要直接使用？从* *[Releases](https://github.com/AlionSSS/window_synchronizer/releases)* *下载最新版本，例如* *`window_synchronizer_v0.3.1.zip`。*
 
 ## 适用场景
 
