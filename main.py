@@ -8,6 +8,7 @@ import theme
 
 import sys
 import os
+import webbrowser
 
 
 def resource_path(relative_path):
@@ -29,6 +30,9 @@ class WindowSyncApp:
     """窗口同步器主应用。"""
 
     HOTKEY_ID = 1
+
+    # 项目仓库地址
+    GITHUB_URL = "https://github.com/AlionSSS/window_synchronizer"
 
     # 同步范围 → 显示名称（默认全部同步）
     _MODE_LABELS = {
@@ -91,6 +95,10 @@ class WindowSyncApp:
             toolbar, text="取消全选", command=self._deselect_all_slaves
         )
         self.deselect_all_btn.pack(side=tk.LEFT, padx=(0, 4))
+
+        ttk.Button(
+            toolbar, text="GitHub", command=self._open_github, style="GitHub.TButton"
+        ).pack(side=tk.RIGHT)
 
         # ── 窗口列表区域 ──
         list_frame = ttk.LabelFrame(self.root, text="桌面窗口列表")
@@ -174,6 +182,16 @@ class WindowSyncApp:
         self.status_bar_label.pack(side=tk.LEFT, padx=4, pady=2)
 
     # ── 窗口列表操作 ─────────────────────────────────────────────
+
+    def _open_github(self):
+        """在默认浏览器中打开项目 GitHub 仓库页面。"""
+        try:
+            webbrowser.open(self.GITHUB_URL)
+        except OSError:
+            messagebox.showwarning(
+                "提示", f"无法打开浏览器，请手动访问：\n{self.GITHUB_URL}"
+            )
+        self.status_bar_label.config(text=f"已在浏览器中打开 {self.GITHUB_URL}")
 
     def _refresh_window_list(self):
         """刷新窗口列表（保留主控和受控状态）。"""

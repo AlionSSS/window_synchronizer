@@ -14,6 +14,10 @@ COLOR_BG_WINDOW = "#EDF2F7"  # 窗口底色（浅灰蓝）
 COLOR_BG_SURFACE = "#FFFFFF"  # 卡片 / 框架底色
 COLOR_BG_SURFACE_ALT = "#F7FAFC"  # 框架备选底色（微蓝白）
 
+# 纯黑（GitHub 按钮主色）
+COLOR_BLACK = "#000000"  # 黑底（白字 21:1）
+COLOR_BLACK_HOVER = "#2B2B2B"  # 黑底悬停 / 按压
+
 # 主题蓝（莫兰迪）
 COLOR_PRIMARY = "#4A6C95"  # 主色（中灰蓝，白字 ≥4.5:1）
 COLOR_PRIMARY_DARK = "#3A587F"  # 主色深（悬停 / 按压）
@@ -200,6 +204,26 @@ def configure_theme(root: tk.Tk) -> float:
         background=[
             ("active", "#6C452E"),
             ("pressed", "#6C452E"),
+        ],
+    )
+
+    # ── GitHub.TButton（黑色主色）──
+    style.configure(
+        "GitHub.TButton",
+        background=COLOR_BLACK,
+        foreground=COLOR_TEXT_ON_PRIMARY,
+    )
+    style.map(
+        "GitHub.TButton",
+        background=[
+            ("active", COLOR_BLACK_HOVER),
+            ("pressed", COLOR_BLACK_HOVER),
+            ("disabled", COLOR_PRIMARY_PALE),
+        ],
+        foreground=[
+            ("active", COLOR_TEXT_ON_PRIMARY),
+            ("pressed", COLOR_TEXT_ON_PRIMARY),
+            ("disabled", COLOR_TEXT_DISABLED),
         ],
     )
 
