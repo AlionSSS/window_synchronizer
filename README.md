@@ -1,11 +1,11 @@
-# 多游戏窗口同步器
+# 多窗口同步器
 
 [![Release](https://img.shields.io/github/v/release/AlionSSS/window_synchronizer?logo=github)](https://github.com/AlionSSS/window_synchronizer/releases)
 ![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6?logo=windows&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
 [![License](https://img.shields.io/github/license/AlionSSS/window_synchronizer)](LICENSE)
 
-将主控窗口上的键盘、鼠标操作实时同步到多个受控游戏窗口，实现「操作一个，全部跟随」。
+将主控窗口上的键盘、鼠标操作实时同步到多个受控窗口，实现"操作一个，全部跟随"。
 
 适用于 Win32 GDI 渲染（基于 Windows 消息机制处理输入）的游戏或应用。无需额外组件，单文件 EXE 即可运行。
 
